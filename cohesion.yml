@@ -1,0 +1,15 @@
+labels:
+  app.cohesion.io/name: fluent-typebox
+  app.cohesion.io/platform: nodejs
+  app.cohesion.io/platform/language: typescript
+  app.cohesion.io/platform/pms: pnpm
+tasks:
+  - name: lint
+    actions:
+      - pnpm lint
+  - name: build
+    actions:
+      - pnpm build
+  - name: watch
+    actions:
+      - pnpm watch
