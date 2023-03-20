@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import type { Writable } from 'stream';
 
 import {
     Type, Static,
@@ -203,5 +204,29 @@ export class FluentTypeCheck<T extends TSchema> {
 
     public check(value: unknown): value is Static<T, []> {
         return this.typeCheck.Check(value);
+    }
+    public errors(value: unknown) {
+        return this.typeCheck.Errors(value);
+    }
+}
+
+export interface FluentTypeCheckErrorOptions extends ErrorOptions {
+    typeCheck: FluentTypeCheck<TSchema>;
+    value: unknown;
+}
+export class FluentTypeCheckError extends Error {
+    public typeCheck: FluentTypeCheck<TSchema>;
+    public value: unknown
+
+    constructor(message: string, options: FluentTypeCheckErrorOptions) {
+        super(message, options);
+
+        this.typeCheck = options.typeCheck;
+        this.value = options.value;
+    }
+
+    public writeDetailedOutput(stdout: Writable) {
+        for (const valueError of this.typeCheck.errors(this.value))
+            stdout.write(`[${valueError.path}] ${valueError.message} <${valueError.value}>` + '\n');
     }
 }
