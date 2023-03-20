@@ -7,6 +7,8 @@ import {
 } from '@sinclair/typebox';
 import { TypeCompiler, ValueError, TypeCheck } from '@sinclair/typebox/compiler';
 
+export type FluentStatic<T extends FluentTypeBuilderBase<TSchema>> = T extends FluentTypeBuilderBase<infer TT> ? Static<TT> : Static<TSchema>
+
 export interface FluentTypeObject {
     [key: string]: FluentTypeBuilderBase<TSchema>;
 }

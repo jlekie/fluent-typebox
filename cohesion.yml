@@ -13,3 +13,6 @@ tasks:
   - name: watch
     actions:
       - pnpm watch
+  - name: publish
+    actions:
+      - pnpm publish --access=public --no-git-checks
