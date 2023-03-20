@@ -1,5 +1,6 @@
 import _ from 'lodash';
 import type { Writable } from 'stream';
+import { inspect } from 'util';
 
 import {
     Type, Static,
@@ -208,24 +209,28 @@ export class FluentTypeCheck<T extends TSchema> {
     public errors(value: unknown) {
         return this.typeCheck.Errors(value);
     }
+    public resolveError(message: string, value: unknown): FluentTypeCheckError {
+        return new FluentTypeCheckError(message, this, value);
+    }
 }
 
 export interface FluentTypeCheckErrorOptions extends ErrorOptions {
-    typeCheck: FluentTypeCheck<TSchema>;
-    value: unknown;
+    // typeCheck: FluentTypeCheck<TSchema>;
+    // value: unknown;
 }
 export class FluentTypeCheckError extends Error {
     public typeCheck: FluentTypeCheck<TSchema>;
     public value: unknown
 
-    constructor(message: string, options: FluentTypeCheckErrorOptions) {
+    constructor(message: string, typeCheck: FluentTypeCheck<TSchema>, value: unknown, options?: FluentTypeCheckErrorOptions) {
         super(message, options);
 
-        this.typeCheck = options.typeCheck;
-        this.value = options.value;
+        this.typeCheck = typeCheck;
+        this.value = value;
     }
 
     public writeDetailedOutput(stdout: Writable) {
+        stdout.write(inspect(this.value) + '\n');
         for (const valueError of this.typeCheck.errors(this.value))
             stdout.write(`[${valueError.path}] ${valueError.message} <${valueError.value}>` + '\n');
     }
