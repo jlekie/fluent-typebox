@@ -1,0 +1,26 @@
+{
+  "name": "@jlekie/fluent-typebox",
+  "version": "0.0.1-alpha.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "build": "tsc --build",
+    "watch": "tsc-watch --noClear"
+  },
+  "files": [
+    "/src",
+    "/dist"
+  ],
+  "devDependencies": {
+    "@tsconfig/node18-strictest": "^1.0.0",
+    "@types/lodash": "^4.14.191",
+    "eslint": "^8.36.0",
+    "tsc-watch": "^6.0.0",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.25.24",
+    "lodash": "^4.17.21"
+  }
+}
