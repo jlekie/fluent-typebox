@@ -4,12 +4,21 @@ import { inspect } from 'util';
 
 import {
     Type, Static,
-    TSchema, TString, TNumber, TInteger, TBoolean, TObject, TPartial, TOptional, TAny, TNull, TUndefined, TNever, TVoid, TUnknown, TLiteral, TLiteralValue, TProperties, TArray, TUnion, TPromise, TFunction, TPick, TOmit, TRecursive, TSelf,
-    StringOptions, NumericOptions, ObjectOptions, SchemaOptions, ArrayOptions
+    TSchema, TString, TNumber, TInteger, TBoolean, TObject, TPartial, TOptional, TAny, TNull, TUndefined, TNever, TVoid, TUnknown, TLiteral, TLiteralValue, TProperties, TArray, TUnion, TPromise, TFunction, TPick, TOmit, TRecursive, TSelf, TRecord, TRecordKey,
+    StringOptions, NumericOptions, ObjectOptions, SchemaOptions, ArrayOptions, TUnsafe, UnsafeOptions
 } from '@sinclair/typebox';
-import { TypeCompiler, ValueError, TypeCheck } from '@sinclair/typebox/compiler';
+import { TypeCompiler, TypeCheck } from '@sinclair/typebox/compiler';
+import { TypeSystem } from '@sinclair/typebox/system';
 
-export type FluentStatic<T extends FluentTypeBuilderBase<TSchema>> = T extends FluentTypeBuilderBase<infer TT> ? Static<TT> : Static<TSchema>
+export type FluentStatic<T extends FluentTypeBuilderBase<TSchema> | FluentTypeCheck<TSchema> | TransformedFluentTypeCheck<TSchema>> =
+    T extends TransformedFluentTypeCheck<TSchema, infer TT> ? TT
+    : T extends FluentTypeCheck<infer TT> ? Static<TT>
+    : T extends FluentTypeBuilderBase<infer TT> ? Static<TT>
+    : unknown;
+
+// export type FluentStatic<T extends FluentTypeBuilderBase<TSchema>> = T extends FluentTypeBuilderBase<infer TT> ? Static<TT> : unknown;
+// export type FluentTypeCheckStatic<T extends FluentTypeCheck<TSchema>> = T extends FluentTypeCheck<infer TT> ? Static<TT> : unknown;
+// export type TransformedFluentTypeCheckStatic<T extends TransformedFluentTypeCheck<TSchema>> = T extends TransformedFluentTypeCheck<TSchema, infer TT> ? TT : unknown;
 
 export interface FluentTypeObject {
     [key: string]: FluentTypeBuilderBase<TSchema>;
@@ -77,8 +86,17 @@ export class FluentTypeBuilder {
             return callback(new SelfFluentTypeBuilder(self)).schema();
         }, options));
     }
+    public record<TKey extends StringFluentTypeBuilder<TString> | NumberFluentTypeBuilder, T extends FluentTypeBuilderBase<TSchema>>(key: TKey, value: T, options?: ObjectOptions) {
+        return new RecordFluentTypeBuilder(Type.Record(key.schema() as MappedWrapped<TKey>, value.schema() as MappedWrapped<T>, options));
+    }
     public type<T extends TSchema>(schema: T) {
         return new CustomFluentTypeBuilder(schema);
+    }
+    public promise<T extends FluentTypeBuilderBase<TSchema>>(schema: T, options?: SchemaOptions) {
+        return new PromiseFluentTypeBuilder(Type.Promise(schema.schema(), options))
+    }
+    public unsafe<T>(options?: UnsafeOptions) {
+        return new UnsafeFluentTypeBuilder(Type.Unsafe<T>(options));
     }
 }
 
@@ -105,8 +123,14 @@ export abstract class FluentTypeBuilderBase<T extends TSchema> {
     public schema() {
         return this.type;
     }
-    public compile() {
-        return new FluentTypeCheck(TypeCompiler.Compile(this.type));
+
+    public compile(): FluentTypeCheck<T>;
+    public compile<TT>(transform: (value: Static<T>) => TT): TransformedFluentTypeCheck<T, TT>;
+    public compile<TT>(transform?: (value: Static<T>) => TT): FluentTypeCheck<T> | TransformedFluentTypeCheck<T, TT> {
+        if (transform)
+            return new TransformedFluentTypeCheck(TypeCompiler.Compile(this.type), transform);
+        else
+            return new FluentTypeCheck(TypeCompiler.Compile(this.type));
     }
 }
 export class StringFluentTypeBuilder<T extends TString> extends FluentTypeBuilderBase<T> {
@@ -193,11 +217,15 @@ export class RecursiveFluentTypeBuilder<T extends TSchema> extends FluentTypeBui
 }
 export class SelfFluentTypeBuilder extends FluentTypeBuilderBase<TSelf> {
 }
+export class RecordFluentTypeBuilder<TKey extends TRecordKey, T extends TSchema> extends FluentTypeBuilderBase<TRecord<TKey, T>> {
+}
 export class CustomFluentTypeBuilder<T extends TSchema> extends FluentTypeBuilderBase<T> {
+}
+export class UnsafeFluentTypeBuilder<T> extends FluentTypeBuilderBase<TUnsafe<T>> {
 }
 
 export class FluentTypeCheck<T extends TSchema> {
-    private typeCheck: TypeCheck<T>;
+    protected typeCheck: TypeCheck<T>;
 
     public constructor(typeCheck: TypeCheck<T>) {
         this.typeCheck = typeCheck;
@@ -206,11 +234,30 @@ export class FluentTypeCheck<T extends TSchema> {
     public check(value: unknown): value is Static<T, []> {
         return this.typeCheck.Check(value);
     }
+    public parse(value: unknown) {
+        if (!this.check(value))
+            throw new FluentTypeCheckError('schema validation failed', this, value);
+
+        return value;
+    }
     public errors(value: unknown) {
         return this.typeCheck.Errors(value);
     }
-    public resolveError(message: string, value: unknown): FluentTypeCheckError {
-        return new FluentTypeCheckError(message, this, value);
+}
+export class TransformedFluentTypeCheck<T extends TSchema, TT = Static<T>> extends FluentTypeCheck<T> {
+    private transform: (value: unknown) => TT;
+
+    public constructor(typeCheck: TypeCheck<T>, transform: (value: Static<T>) => TT) {
+        super(typeCheck)
+
+        this.transform = transform;
+    }
+
+    public override parse(value: unknown) {
+        if (!this.check(value))
+            throw new FluentTypeCheckError('schema validation failed', this, value);
+
+        return this.transform(value);
     }
 }
 
@@ -235,3 +282,46 @@ export class FluentTypeCheckError extends Error {
             stdout.write(`[${valueError.path}] ${valueError.message} <${valueError.value}>` + '\n');
     }
 }
+
+// const Tmp = Type.Recursive(T => Type.Object({
+//     name: Type.String(),
+//     test: T
+// }));
+// const TmpCompiled = TypeCompiler.Compile(Tmp);
+
+// const Tmp2 = Type.Array(Type.Object({
+//     name: Type.String()
+// }));
+// const Tmp2Compiled = TypeCompiler.Compile(Tmp2);
+// const test = {};
+// if (Tmp2Compiled.Check(test)) {
+//     for (const t of test) {
+//     }
+//     const t = test[0];
+
+// }
+
+// const FT = new FluentTypeBuilder();
+
+// interface ITest {
+//     name: string;
+//     value: string;
+// }
+// const Test = FT.unsafe<ITest>().compile();
+// const test = {};
+// if (Test.check(test)) {
+// }
+
+// const Test = FT.object({
+//     name: FT.string(),
+//     abc: FT.literal('abc')
+// }).compile(value => ({
+//     ...value,
+//     name2: value.name,
+//     test: '123' as const
+// }));
+
+// type TTest = FluentStatic<typeof Test>;
+
+// const test = {};
+// const parsedTest = Test.parse(test);
