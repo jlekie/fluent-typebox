@@ -6,13 +6,16 @@ labels:
 tasks:
   - name: lint
     actions:
-      - pnpm lint
+      - type: node.script
+        script: lint
   - name: build
     actions:
-      - pnpm build
+      - type: node.script
+        script: build
   - name: watch
     actions:
-      - pnpm watch
+      - type: node.script
+        script: watch
   - name: publish
     actions:
       - pnpm publish --access=public --no-git-checks

@@ -4,7 +4,7 @@ import { inspect } from 'util';
 
 import {
     Type, Static,
-    TSchema, TString, TNumber, TInteger, TBoolean, TObject, TPartial, TOptional, TAny, TNull, TUndefined, TNever, TVoid, TUnknown, TLiteral, TLiteralValue, TProperties, TArray, TUnion, TPromise, TFunction, TPick, TOmit, TRecursive, TSelf, TRecord, TRecordKey,
+    TSchema, TString, TNumber, TInteger, TBoolean, TObject, TPartial, TOptional, TAny, TNull, TUndefined, TNever, TVoid, TUnknown, TLiteral, TLiteralValue, TProperties, TArray, TUnion, TPromise, TFunction, TPick, TOmit, TRecursive, TSelf, TRecord, TRecordKey, TTuple,
     StringOptions, NumericOptions, ObjectOptions, SchemaOptions, ArrayOptions, TUnsafe, UnsafeOptions
 } from '@sinclair/typebox';
 import { TypeCompiler, TypeCheck } from '@sinclair/typebox/compiler';
@@ -97,6 +97,9 @@ export class FluentTypeBuilder {
     }
     public unsafe<T>(options?: UnsafeOptions) {
         return new UnsafeFluentTypeBuilder(Type.Unsafe<T>(options));
+    }
+    public tuple<T extends FluentTypeBuilderBase<TSchema>[]>(items: [...T], options?: SchemaOptions) {
+        return new TupleFluentTypeBuilder(Type.Tuple([...items.map(i => i.schema()) as MappedFluentTypeTuple<T>], options));
     }
 }
 
@@ -223,6 +226,8 @@ export class CustomFluentTypeBuilder<T extends TSchema> extends FluentTypeBuilde
 }
 export class UnsafeFluentTypeBuilder<T> extends FluentTypeBuilderBase<TUnsafe<T>> {
 }
+export class TupleFluentTypeBuilder<T extends TSchema[]> extends FluentTypeBuilderBase<TTuple<T>> {
+}
 
 export class FluentTypeCheck<T extends TSchema> {
     protected typeCheck: TypeCheck<T>;
@@ -325,3 +330,16 @@ export class FluentTypeCheckError extends Error {
 
 // const test = {};
 // const parsedTest = Test.parse(test);
+
+// const Tmp = FT.tuple([ FT.string(), FT.number() ]).compile();
+// const tmp = {};
+
+// if (Tmp.check(tmp)) {
+//     const t = tmp;
+// }
+
+// const Tmp2T = Type.Tuple([ Type.String(), Type.Number() ]);
+// const Tmp2 = TypeCompiler.Compile(Tmp2T);
+// if (Tmp2.Check(tmp)) {
+//     const t = tmp;
+// }
