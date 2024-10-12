@@ -4,8 +4,8 @@ import { inspect } from 'util';
 
 import {
     Type, Static,
-    TSchema, TString, TNumber, TInteger, TBoolean, TObject, TPartial, TOptional, TAny, TNull, TUndefined, TNever, TVoid, TUnknown, TLiteral, TLiteralValue, TProperties, TArray, TUnion, TPromise, TFunction, TPick, TOmit, TRecursive, TSelf, TRecord, TRecordKey, TTuple,
-    StringOptions, NumericOptions, ObjectOptions, SchemaOptions, ArrayOptions, TUnsafe, UnsafeOptions
+    TSchema, TString, TNumber, TInteger, TBoolean, TDate, TObject, TPartial, TOptional, TAny, TNull, TUndefined, TNever, TVoid, TUnknown, TLiteral, TLiteralValue, TProperties, TArray, TUnion, TPromise, TFunction, TPick, TOmit, TRecursive, TSelf, TRecord, TRecordKey, TTuple,
+    StringOptions, NumericOptions, DateOptions, ObjectOptions, SchemaOptions, ArrayOptions, TUnsafe, UnsafeOptions,
 } from '@sinclair/typebox';
 import { TypeCompiler, TypeCheck } from '@sinclair/typebox/compiler';
 import { TypeSystem } from '@sinclair/typebox/system';
@@ -43,6 +43,9 @@ export class FluentTypeBuilder {
     }
     public boolean(options?: SchemaOptions) {
         return new BooleanFluentTypeBuilder(Type.Boolean(options));
+    }
+    public date(options?: DateOptions) {
+        return new DateFluentTypeBuilder(Type.Date(options));
     }
     public literal<T extends TLiteralValue>(value: T, options?: SchemaOptions) {
         return new LiteralFluentTypeBuilder(Type.Literal(value, options));
@@ -144,6 +147,8 @@ export class IntegerFluentTypeBuilder extends FluentTypeBuilderBase<TInteger> {
 }
 export class BooleanFluentTypeBuilder extends FluentTypeBuilderBase<TBoolean> {
 }
+export class DateFluentTypeBuilder extends FluentTypeBuilderBase<TDate> {
+}
 export class LiteralFluentTypeBuilder<T extends TLiteralValue> extends FluentTypeBuilderBase<TLiteral<T>> {
 }
 export class AnyFluentTypeBuilder extends FluentTypeBuilderBase<TAny> {
@@ -215,6 +220,9 @@ export class ArrayFluentTypeBuilder<T extends TSchema> extends FluentTypeBuilder
 export class PromiseFluentTypeBuilder<T extends TSchema> extends FluentTypeBuilderBase<TPromise<T>> {
 }
 export class FunctionFluentTypeBuilder<T extends readonly TSchema[], U extends TSchema> extends FluentTypeBuilderBase<TFunction<T, U>> {
+    public cast<T extends Function>() {
+        return new UnsafeFluentTypeBuilder(Type.Unsafe<T>({ ...this.type }));
+    }
 }
 export class RecursiveFluentTypeBuilder<T extends TSchema> extends FluentTypeBuilderBase<TRecursive<T>> {
 }
@@ -238,6 +246,12 @@ export class FluentTypeCheck<T extends TSchema> {
 
     public check(value: unknown): value is Static<T, []> {
         return this.typeCheck.Check(value);
+    }
+    public validate(value: unknown): value is Static<T, []> {
+        if (!this.typeCheck.Check(value))
+            throw new FluentTypeCheckError('schema validation failed', this, value);
+
+        return true;
     }
     public parse(value: unknown) {
         if (!this.check(value))
